@@ -1,0 +1,483 @@
+{
+    "name": "PL_LOAD_SOURCE_TO_RAW_TMANALYTICS",
+    "properties": {
+        "activities": [
+            {
+                "name": "get_ftp_filelist",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "GetAdlsDetails",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "GetFtpDetails",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlDWSource",
+                        "sqlReaderQuery": {
+                            "value": "SELECT * FROM [TM_ANALYTICS].[FILE_TABLE_DTLS] where LOADNG_LAYER='SRC_RAW' AND SRC_SYS_ID='@{pipeline().parameters.SRC_SYS_ID}' AND LD_TYPE='@{pipeline().parameters.LoadType}'",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_syn_tmanalytics",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": " TM_ANALYTICS",
+                            "TableName": "FILE_TABLE_DTLS",
+                            "SqlPoolConnection": {
+                                "value": "@activity('GetSqlPoolDetails').output.firstRow.CON_STRNG_SCRT_NAME",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "firstRowOnly": true
+                }
+            },
+            {
+                "name": "GetSqlPoolDetails",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlDWSource",
+                        "sqlReaderQuery": "select con_strng_scrt_name from [TM_ANALYTICS].[CON_DTLS] where con_id = 'c3'",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_synapse_meta_data_con_tmanalytics",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": "TM_ANALYTICS",
+                            "TableName": "CON_DTLS",
+                            "SqlPoolConnection": {
+                                "value": "@pipeline().parameters.SQLConnectionString",
+                                "type": "Expression"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "name": "GetAdlsDetails",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "GetSqlPoolDetails",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlDWSource",
+                        "sqlReaderQuery": "SELECT * FROM  [TM_ANALYTICS].[CON_DTLS] WHERE CON_ID='C2'",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_syn_tmanalytics",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": "TM_ANALYTICS",
+                            "TableName": "CON_DTLS",
+                            "SqlPoolConnection": {
+                                "value": "@activity('GetSqlPoolDetails').output.firstRow.CON_STRNG_SCRT_NAME",
+                                "type": "Expression"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "name": "GetFtpDetails",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "GetSqlPoolDetails",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlDWSource",
+                        "sqlReaderQuery": "SELECT * FROM [TM_ANALYTICS].[CON_DTLS] WHERE CON_ID='C1'",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_syn_tmanalytics",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": "TM_ANALYTICS",
+                            "TableName": "CON_DTLS",
+                            "SqlPoolConnection": {
+                                "value": "@activity('GetSqlPoolDetails').output.firstRow.CON_STRNG_SCRT_NAME",
+                                "type": "Expression"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "name": "Switch1",
+                "type": "Switch",
+                "dependsOn": [
+                    {
+                        "activity": "get_ftp_filelist",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "on": {
+                        "value": "@activity('get_ftp_filelist').output.firstRow.FILE_FORMAT_TYPE",
+                        "type": "Expression"
+                    },
+                    "cases": [
+                        {
+                            "value": "csv",
+                            "activities": [
+                                {
+                                    "name": "PL_SOURCE_TO_RAW",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [],
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "PL_SOURCE_TO_RAW_CSV_TMANALYTICS",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "SRC_SYS_ID": {
+                                                "value": "@pipeline().parameters.SRC_SYS_ID",
+                                                "type": "Expression"
+                                            },
+                                            "SQLConnectionString": {
+                                                "value": "@pipeline().parameters.SQLConnectionString",
+                                                "type": "Expression"
+                                            },
+                                            "LoadType": {
+                                                "value": "@pipeline().parameters.LoadType",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "tsv",
+                            "activities": [
+                                {
+                                    "name": "PL_SOURCE_TO_RAW_TSV_TMANALYTICS",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [],
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "PL_SOURCE_TO_RAW_TSV_TMANALYTICS",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "SRC_SYS_ID": {
+                                                "value": "@pipeline().parameters.SRC_SYS_ID",
+                                                "type": "Expression"
+                                            },
+                                            "SQLConnectionString": {
+                                                "value": "@pipeline().parameters.SQLConnectionString",
+                                                "type": "Expression"
+                                            },
+                                            "LoadType": {
+                                                "value": "@pipeline().parameters.LoadType",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "DB",
+                            "activities": [
+                                {
+                                    "name": "PL_COPY_ENVIDB_TO_RAW",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [],
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "PL_COPY_ENVIDB_TO_RAW",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "SRC_SYS_ID": {
+                                                "value": "@pipeline().parameters.SRC_SYS_ID",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "zip",
+                            "activities": [
+                                {
+                                    "name": "D2L_SRC_TO_RAW",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [],
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "PL_SOURCE_TO_RAW_D2L_TMANALYTICS",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "SRC_SYS_ID": {
+                                                "value": "@pipeline().parameters.SRC_SYS_ID",
+                                                "type": "Expression"
+                                            },
+                                            "SQLConnectionString": {
+                                                "value": "@pipeline().parameters.SQLConnectionString",
+                                                "type": "Expression"
+                                            },
+                                            "LoadType": {
+                                                "value": "@pipeline().parameters.LoadType",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "txt",
+                            "activities": [
+                                {
+                                    "name": "PL_SOURCE_TO_RAW_TXT_TMANALYTICS",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [],
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "PL_SOURCE_TO_RAW_TXT_TMANALYTICS",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "SRC_SYS_ID": {
+                                                "value": "@pipeline().parameters.SRC_SYS_ID",
+                                                "type": "Expression"
+                                            },
+                                            "SQLConnectionString": {
+                                                "value": "@pipeline().parameters.SQLConnectionString",
+                                                "type": "Expression"
+                                            },
+                                            "LoadType": {
+                                                "value": "@pipeline().parameters.LoadType",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "DB2",
+                            "activities": [
+                                {
+                                    "name": "PL_LOAD_SOURCE_TO_RAW_DB_TMANALYTICS",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [],
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "PL_LOAD_SOURCE_TO_RAW_DB_TMANALYTICS",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "SQLlConnectionString": {
+                                                "value": "@pipeline().parameters.SQLConnectionString",
+                                                "type": "Expression"
+                                            },
+                                            "SRC_SYS_ID": {
+                                                "value": "@pipeline().parameters.SRC_SYS_ID",
+                                                "type": "Expression"
+                                            },
+                                            "LD_Type": {
+                                                "value": "@pipeline().parameters.LoadType",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "EMAIL_SUCCESS",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "Switch1",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "PL_EMAIL_NOTIFICATION_TMANALYTICS",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "Activity": "'at src_to_raw'",
+                        "Message": {
+                            "value": "@concat('Success for the source ',pipeline().parameters.SRC_SYS_ID)",
+                            "type": "Expression"
+                        },
+                        "EmailTo": "naganarendra.krishnasai@stryker.com,nikhil.gumulwar@stryker.com",
+                        "DataFactory": {
+                            "value": "@pipeline().DataFactory",
+                            "type": "Expression"
+                        },
+                        "PipelineName": {
+                            "value": "@pipeline().Pipeline",
+                            "type": "Expression"
+                        },
+                        "PipelineRunId": {
+                            "value": "@pipeline().RunId",
+                            "type": "Expression"
+                        },
+                        "PipelineTrgTime": {
+                            "value": "@pipeline().TriggerTime",
+                            "type": "Expression"
+                        },
+                        "Title": {
+                            "value": "Pipeline Success",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "EMAIL_FAILURE",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "Switch1",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "PL_EMAIL_NOTIFICATION_TMANALYTICS",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "Activity": "'at src_to_raw'",
+                        "Message": {
+                            "value": "@concat('Faild for the source ',pipeline().parameters.SRC_SYS_ID,' ',activity('Switch1').Error.Message)",
+                            "type": "Expression"
+                        },
+                        "EmailTo": "naganarendra.krishnasai@stryker.com,nikhil.gumulwar@stryker.com",
+                        "DataFactory": {
+                            "value": "@pipeline().DataFactory",
+                            "type": "Expression"
+                        },
+                        "PipelineName": {
+                            "value": "@pipeline().Pipeline",
+                            "type": "Expression"
+                        },
+                        "PipelineRunId": {
+                            "value": "@pipeline().RunId",
+                            "type": "Expression"
+                        },
+                        "PipelineTrgTime": {
+                            "value": "@pipeline().TriggerTime",
+                            "type": "Expression"
+                        },
+                        "Title": "Pipeline Failure"
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "SRC_SYS_ID": {
+                "type": "string"
+            },
+            "SQLConnectionString": {
+                "type": "string"
+            },
+            "LoadType": {
+                "type": "string"
+            }
+        },
+        "folder": {
+            "name": "GQO_Analytics/TMAnalytics"
+        },
+        "annotations": []
+    }
+}
